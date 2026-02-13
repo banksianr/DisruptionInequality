@@ -60,6 +60,14 @@ FORWARD_WINDOW_YEARS = 10
 MAX_CITERS_PER_WORK = 400
 MIN_CITERS_FOR_D = 5
 TOP_PERCENTILE = 0.05  # top 5% = "disruptive"
+CHECKPOINT_EVERY = int(os.environ.get("DISRUPT_CHECKPOINT_EVERY", "100"))
+_MAX_PAPERS_ENV = os.environ.get("DISRUPT_MAX_PAPERS", "").strip()
+try:
+    MAX_PAPERS_TO_SCORE = int(_MAX_PAPERS_ENV) if _MAX_PAPERS_ENV else None
+except ValueError:
+    MAX_PAPERS_TO_SCORE = None
+if MAX_PAPERS_TO_SCORE is not None and MAX_PAPERS_TO_SCORE <= 0:
+    MAX_PAPERS_TO_SCORE = None
 
 ZENODO_URL = "https://zenodo.org/records/7258379/files/nature_disruption_open_access.tar.gz"
 OPENALEX_AUTHOR_URL = "https://api.openalex.org/authors"
@@ -1227,40 +1235,167 @@ def write_report(
 # ── Fallback: Pure OpenAlex Approach ──────────────────────────────────────────
 
 def fallback_compute_disruption_openalex(
-    client: CurlCacheClient, works_df: pd.DataFrame, max_papers: int = 5000
+    client: CurlCacheClient,
+    works_df: pd.DataFrame,
+    checkpoint_path: Optional[Path] = None,
+    max_papers: Optional[int] = None,
+    checkpoint_every: int = CHECKPOINT_EVERY,
 ) -> pd.DataFrame:
-    """Compute A/B disruption for papers when Zenodo data is unavailable."""
-    print(f"  FALLBACK: Computing A/B disruption via OpenAlex for up to {max_papers} papers...", flush=True)
+    """Compute A/B disruption for eligible papers with checkpointed resume."""
+    if "cd5" not in works_df.columns:
+        works_df["cd5"] = np.nan
+    if "ab_computed" not in works_df.columns:
+        works_df["ab_computed"] = works_df["cd5"].notna()
+    works_df["ab_computed"] = works_df["ab_computed"].fillna(False).astype(bool)
+
+    def parse_ref_list(value: Any) -> List[str]:
+        if isinstance(value, list):
+            return [short_openalex_id(x) for x in value]
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                return []
+            if isinstance(parsed, list):
+                return [short_openalex_id(x) for x in parsed]
+        return []
+
+    # Apply prior checkpoint to avoid recomputing completed work IDs.
+    if checkpoint_path is not None and checkpoint_path.exists():
+        try:
+            chk = pd.read_csv(checkpoint_path)
+            needed = {"work_id", "ab_computed", "cd5"}
+            if needed.issubset(set(chk.columns)) and not chk.empty:
+                chk = chk.drop_duplicates(subset=["work_id"], keep="last")
+                done_ids = set(
+                    chk.loc[chk["ab_computed"].fillna(False).astype(bool), "work_id"].astype(str).tolist()
+                )
+                cd5_map = chk.set_index("work_id")["cd5"]
+                missing_cd5 = works_df["cd5"].isna()
+                works_df.loc[missing_cd5, "cd5"] = (
+                    works_df.loc[missing_cd5, "work_id"].astype(str).map(cd5_map)
+                )
+                works_df.loc[works_df["work_id"].astype(str).isin(done_ids), "ab_computed"] = True
+                print(f"  Loaded checkpoint entries: {len(chk):,}", flush=True)
+        except Exception as e:
+            print(f"  WARNING: Failed to load checkpoint {checkpoint_path}: {e}", flush=True)
 
     eligible = works_df[works_df["ref_count"] > 0].copy()
-    if len(eligible) > max_papers:
-        eligible = eligible.sample(n=max_papers, random_state=RANDOM_SEED)
+    if eligible.empty:
+        print("  No eligible papers with references for A/B disruption.", flush=True)
+        return works_df
 
-    results = []
-    for i, (_, row) in enumerate(eligible.iterrows(), start=1):
+    eligible_unique = eligible.drop_duplicates(subset=["work_id"], keep="first").copy()
+    pending = eligible_unique[~eligible_unique["ab_computed"]].copy()
+    pending = pending.sort_values(["publication_year", "work_id"], ascending=[True, True])
+
+    if max_papers is not None:
+        pending = pending.head(max_papers)
+        print(
+            f"  FALLBACK: Computing A/B disruption for next {len(pending):,} papers "
+            f"(cap={max_papers:,}, resumable).",
+            flush=True,
+        )
+    else:
+        print(
+            f"  FALLBACK: Computing A/B disruption for all pending papers "
+            f"({len(pending):,}, resumable).",
+            flush=True,
+        )
+
+    if pending.empty:
+        print("  No pending papers remain to compute.", flush=True)
+        return works_df
+
+    work_indices = works_df.groupby("work_id").indices
+
+    def flush_checkpoint(rows: List[Dict[str, Any]]) -> None:
+        if not rows or checkpoint_path is None:
+            return
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        chunk = pd.DataFrame(rows)
+        if checkpoint_path.exists():
+            chunk.to_csv(checkpoint_path, mode="a", header=False, index=False)
+        else:
+            chunk.to_csv(checkpoint_path, index=False)
+        rows.clear()
+
+    chunk_rows: List[Dict[str, Any]] = []
+    processed = 0
+    valid_scored = int(
+        (
+            eligible_unique["ab_computed"].fillna(False).astype(bool)
+            & eligible_unique["cd5"].notna()
+        ).sum()
+    )
+    started = time.time()
+
+    for i, (_, row) in enumerate(pending.iterrows(), start=1):
+        ref_source = row.get("referenced_works", row.get("referenced_works_json", []))
         work = {
             "work_id": row["work_id"],
             "publication_year": row["publication_year"],
-            "referenced_works": row.get("referenced_works", []),
+            "referenced_works": parse_ref_list(ref_source),
         }
-        if isinstance(work["referenced_works"], str):
-            try:
-                work["referenced_works"] = json.loads(work["referenced_works"])
-            except (json.JSONDecodeError, TypeError):
-                work["referenced_works"] = []
 
         metric = compute_ab_disruption(client, work)
-        results.append({"work_id": row["work_id"], "cd5": metric["d_ab10"]})
+        work_id = row["work_id"]
+        idxs = work_indices.get(work_id, [])
+        if len(idxs) > 0:
+            works_df.loc[idxs, "cd5"] = metric["d_ab10"]
+            works_df.loc[idxs, "ab_computed"] = True
+
+        chunk_rows.append(
+            {
+                "work_id": work_id,
+                "cd5": metric["d_ab10"],
+                "ab_computed": True,
+                "a_count": metric.get("a_count", np.nan),
+                "b_count": metric.get("b_count", np.nan),
+                "window_citers": metric.get("window_citers", np.nan),
+            }
+        )
+        processed += 1
+        if not np.isnan(metric["d_ab10"]):
+            valid_scored += 1
+
+        if checkpoint_every > 0 and len(chunk_rows) >= checkpoint_every:
+            flush_checkpoint(chunk_rows)
 
         if i % 100 == 0:
-            valid = sum(1 for r in results if not np.isnan(r.get("cd5", np.nan)))
-            print(f"    Computed {i}/{len(eligible)} ({valid} valid)...", flush=True)
+            elapsed = max(1e-9, time.time() - started)
+            rate = i / elapsed
+            remaining = len(pending) - i
+            eta_hours = remaining / max(1e-9, rate) / 3600
+            print(
+                f"    Computed {i}/{len(pending):,} "
+                f"(valid scored: {valid_scored:,}, rate: {rate:.2f}/s, eta: {eta_hours:.1f}h)",
+                flush=True,
+            )
 
-    result_df = pd.DataFrame(results)
-    merged = works_df.merge(result_df, on="work_id", how="left", suffixes=("_old", ""))
-    if "cd5_old" in merged.columns:
-        merged.drop(columns=["cd5_old"], inplace=True)
-    return merged
+    flush_checkpoint(chunk_rows)
+
+    total_eligible_unique = len(eligible_unique)
+    total_attempted = int(
+        eligible_unique["work_id"].astype(str).isin(
+            works_df.loc[works_df["ab_computed"], "work_id"].astype(str)
+        ).sum()
+    )
+    total_valid = int(
+        (
+            works_df.drop_duplicates(subset=["work_id"], keep="first")["ab_computed"].fillna(False).astype(bool)
+            & works_df.drop_duplicates(subset=["work_id"], keep="first")["cd5"].notna()
+        ).sum()
+    )
+    print(
+        f"  A/B scoring coverage: attempted {total_attempted:,}/{total_eligible_unique:,} eligible papers; "
+        f"valid scores={total_valid:,}.",
+        flush=True,
+    )
+    return works_df
 
 
 # ── Main Pipeline ─────────────────────────────────────────────────────────────
@@ -1349,18 +1484,43 @@ def main() -> None:
     print("=" * 70, flush=True)
 
     scored_cache_path = OUTPUT_DIR / "works_with_cd5.csv"
+    score_checkpoint_path = OUTPUT_DIR / "cd5_checkpoint.csv"
     if scored_cache_path.exists():
         print("  Loading cached disruption scores...", flush=True)
         works_df = pd.read_csv(scored_cache_path)
-        print(f"  Loaded {works_df['cd5'].notna().sum():,} scored works from cache.", flush=True)
+        if "ab_computed" not in works_df.columns:
+            works_df["ab_computed"] = works_df["cd5"].notna()
+        else:
+            works_df["ab_computed"] = works_df["ab_computed"].fillna(False).astype(bool)
+        print(
+            f"  Loaded {works_df['cd5'].notna().sum():,} valid scored works from cache "
+            f"({works_df['ab_computed'].sum():,} attempted).",
+            flush=True,
+        )
     else:
-        # Zenodo data has no per-paper IDs, so we always compute A/B disruption
-        # Reconstruct referenced_works from JSON if needed
-        if "referenced_works_json" in works_df.columns and "referenced_works" not in works_df.columns:
-            works_df["referenced_works"] = works_df["referenced_works_json"].apply(
-                lambda x: json.loads(x) if pd.notna(x) else [])
-        works_df = fallback_compute_disruption_openalex(client, works_df, max_papers=5000)
+        works_df["ab_computed"] = works_df["cd5"].notna() if "cd5" in works_df.columns else False
+
+    # Zenodo data has no per-paper IDs, so we always compute A/B disruption.
+    # Resume on any remaining eligible papers.
+    eligible_unique = works_df[works_df["ref_count"] > 0].drop_duplicates(subset=["work_id"], keep="first")
+    pending_unique = eligible_unique[~eligible_unique["ab_computed"].fillna(False).astype(bool)]
+    print(
+        f"  Pending A/B scoring: {len(pending_unique):,} of {len(eligible_unique):,} eligible unique papers.",
+        flush=True,
+    )
+
+    if len(pending_unique) > 0:
+        works_df = fallback_compute_disruption_openalex(
+            client,
+            works_df,
+            checkpoint_path=score_checkpoint_path,
+            max_papers=MAX_PAPERS_TO_SCORE,
+            checkpoint_every=CHECKPOINT_EVERY,
+        )
         works_df.to_csv(scored_cache_path, index=False)
+        print(f"  Saved updated scored works to {scored_cache_path}", flush=True)
+    else:
+        print("  No additional A/B scoring needed.", flush=True)
 
     # ── Step 5: Author-level disruption metrics ──
     print("=" * 70, flush=True)

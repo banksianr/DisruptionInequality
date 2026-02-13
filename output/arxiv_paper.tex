@@ -24,11 +24,12 @@
 
 % ── Title ─────────────────────────────────────────────────────────────────────
 
-\title{\textbf{The Concentration of Disruptive Research Among Scientists:\\Evidence from 10,000 STEM Authors}}
+\title{\textbf{How Concentrated Is Disruptive Research?\\A Corrected Analysis of 10,000 STEM Authors}}
 
 \author{
-    Ian Banks\\
-    \textit{Independent Researcher}
+    Ian Banks\textsuperscript{1} \and Claude\textsuperscript{2}\\[6pt]
+    \textsuperscript{1}\textit{Foundation for American Innovation}\\
+    \textsuperscript{2}\textit{Anthropic}
 }
 
 \date{\today}
@@ -42,11 +43,11 @@
 % ── Abstract ──────────────────────────────────────────────────────────────────
 
 \begin{abstract}
-We investigate the concentration of disruptive scientific research among individual scientists using bibliometric data from OpenAlex covering 10,000 randomly sampled STEM authors and 109,527 publications from 1980--2010. Using the A/B disruption index to measure each paper's tendency to displace versus consolidate prior work, we find extreme concentration: the Gini coefficient for disruptive output is 0.900 (95\% CI: [0.884, 0.914]), substantially exceeding the Gini for citation counts (0.658). The top 1\% of scientists produce 16.8\% of all top-5\% disruptive papers, the top 5\% produce 50.3\%, and the top 10\% produce 92.1\%. This concentration is remarkably stable across time (Gini range: 0.89--0.95 in five-year windows from 1980 to 2009) and consistent across eleven STEM subfields (field Ginis: 0.77--0.95). Logistic regression reveals that career length is the strongest predictor of producing disruptive work ($p < 10^{-8}$), while team size, h-index, and publication rate are not statistically significant predictors. These findings suggest that the capacity to produce paradigm-shifting research is structurally concentrated among a thin tail of scientists, that this concentration exceeds the already-skewed distribution of scientific citations, and that the phenomenon is a persistent feature of STEM research rather than an artifact of any particular era or discipline.
+We investigate whether disruptive scientific research is concentrated among a small fraction of scientists, using bibliometric data from OpenAlex covering 10,000 randomly sampled STEM authors. Using the A/B disruption index, we initially found extreme concentration (Gini = 0.90), but a methodological audit revealed two problems: (1) papers with few references produce artificially extreme disruption scores, and (2) computing the Gini coefficient on a zero-inflated count variable (number of ``top-5\%'' papers per author) yields a value that mechanically approximates the fraction of authors with zero disruptive papers, rather than measuring meaningful inequality. After correcting for reference-count bias and switching to continuous disruption scores, we find \emph{moderate} inequality (Gini = 0.36, 95\% CI: [0.35, 0.38]) that is \emph{less} concentrated than citation counts (Gini = 0.57). The top 5\% of scientists account for 12.3\% of total disruption score mass---notable but far from the 50.3\% initially reported. These corrected findings are stable across six five-year windows (1980--2009) and consistent across STEM subfields. We present this as a case study in how common bibliometric analysis choices---thresholding continuous scores into binary indicators, neglecting reference-count confounds, and applying inequality measures to zero-inflated distributions---can produce misleading conclusions.
 \end{abstract}
 
 \medskip
-\noindent\textbf{Keywords:} disruption index, scientific productivity, Gini coefficient, metascience, bibliometrics, OpenAlex
+\noindent\textbf{Keywords:} disruption index, scientific productivity, Gini coefficient, metascience, bibliometrics, methodological correction
 
 \newpage
 
@@ -54,349 +55,335 @@ We investigate the concentration of disruptive scientific research among individ
 
 \section{Introduction}
 
-Scientific progress is not distributed evenly across the research workforce. A small number of landmark papers reshape entire fields, while the vast majority of publications consolidate existing knowledge. This asymmetry was famously described by \citet{kuhn1962} as the distinction between ``normal science'' and ``revolutionary science,'' and has been quantified by \citet{price1963} and \citet{lotka1926} in the context of productivity distributions. More recently, the development of the disruption index \citep{funk2017, wu2019} has provided a citation-based measure that distinguishes papers that \emph{displace} prior work from those that merely \emph{consolidate} it, offering a more direct operationalization of paradigm-shifting research than raw citation counts alone.
+A small number of scientific papers reshape entire fields, while the vast majority consolidate existing knowledge. The disruption index \citep{funk2017, wu2019} attempts to measure this distinction: it classifies each paper's subsequent citations as either ``displacing'' prior work (disruptive) or ``building on'' prior work alongside the focal paper (consolidating). Using this measure, \citet{park2023} documented a broad decline in disruptive science over six decades.
 
-\citet{park2023} documented a broad decline in disruptive science and technology over six decades across multiple domains. Their analysis characterized the population-level trajectory of disruption but did not examine the \emph{individual-level} distribution---whether disruptive output is concentrated among a small fraction of scientists, how concentrated it is relative to citations, and whether this concentration varies across fields and time periods.
+A natural follow-up question is whether disruptive research is concentrated among a small fraction of scientists---a ``disruptor elite.'' We set out to test this hypothesis using 10,000 randomly sampled STEM authors from OpenAlex. Our initial analysis appeared to show extreme concentration: a Gini coefficient of 0.90 for disruptive output, far exceeding the Gini for citations (0.66). However, a replication audit uncovered two methodological problems that dramatically inflated our concentration estimates. This paper reports both the flawed and corrected analyses, as we believe the methodological lessons are as important as the substantive findings.
 
-This study addresses three questions:
+\subsection{What We Set Out to Test}
+
+Our hypothesis was: \emph{only a very small percentage of scientists produce very disruptive research.} We operationalized this using the A/B disruption index and asked three questions:
 
 \begin{enumerate}
-    \item \textbf{How concentrated is disruptive research output among individual scientists?} We measure this using the Gini coefficient, Lorenz curves, and concentration ratios applied to author-level disruption metrics.
-
-    \item \textbf{What distinguishes disruptors from non-disruptors?} We compare scientists who have produced at least one top-5\% disruptive paper against those who have not, along dimensions of team size, productivity, career length, h-index, and field affiliation.
-
-    \item \textbf{Is the concentration of disruption stable across time and fields?} We compute Gini coefficients within five-year windows (1980--2009) and within individual STEM subfields to assess structural persistence.
+    \item How unequally is disruptive research output distributed among scientists?
+    \item What distinguishes scientists who produce disruptive work from those who do not?
+    \item Is this pattern stable across time periods and scientific fields?
 \end{enumerate}
-
-Our analysis contributes to a growing metascience literature on the ``disruptor profile'' \citep{lin2023, park2023, wu2019}, which suggests that disruptors tend to work in smaller teams, publish less frequently, and occupy less central positions in the scientific establishment. We provide the first systematic measurement of \emph{how concentrated} disruptive output is at the author level, and benchmark this concentration against the well-studied skewness of citation distributions.
 
 % ── 2. Data and Methods ──────────────────────────────────────────────────────
 
 \section{Data and Methods}
 
-\subsection{Sample Construction}
+This section explains each step of our analysis in plain terms. Where statistical concepts are used, we define them.
 
-We constructed a sample of 10,000 STEM authors using the OpenAlex bibliometric database \citep{priem2022}. Authors were sampled using the OpenAlex random sample endpoint with 424 distinct random seeds, applying minimum thresholds of ${>}\,5$ publications and ${>}\,10$ citations to exclude inactive or marginal researchers. Each sampled author was classified as STEM or non-STEM using a client-side keyword filter applied to the author's top five associated concepts in OpenAlex's concept taxonomy. The STEM filter matched 43 concept keywords spanning physics, chemistry, biology, mathematics, computer science, engineering, medicine, and related disciplines. Approximately 12\% of randomly sampled authors passed the STEM filter, reflecting the composition of OpenAlex's global author database.
+\subsection{Step 1: Sampling Scientists}
 
-For each of the 10,000 STEM authors, we retrieved all articles and reviews published between 1980 and 2010 from OpenAlex, yielding 109,527 works. The publication window was chosen to ensure an adequate forward citation window of at least 10 years for disruption computation, following standard practice in the disruption literature \citep{wu2019, park2023}.
+We drew a random sample of 10,000 STEM authors from OpenAlex, a free bibliometric database indexing over 200 million scholarly works \citep{priem2022}. To focus on active researchers, we required each author to have at least 5 publications and 10 citations. We identified STEM authors by matching their listed research topics against 43 keywords spanning physics, chemistry, biology, mathematics, computer science, engineering, and medicine.
 
-\subsection{Disruption Measurement}
+For each author, we retrieved all articles and reviews published between 1980 and 2010, yielding 109,527 works. The 2010 cutoff ensures that every paper has at least a 10-year window for accumulating citations---important because disruption scores depend on citation patterns that take years to develop.
 
-We computed disruption scores using the A/B variant of the disruption index. For a focal paper $p$ with reference set $R$, we identified all papers citing $p$ within a 10-year forward window after publication. Each citing paper was classified as:
+\subsection{Step 2: Computing Disruption Scores}
+
+The disruption index measures whether a paper \emph{displaces} or \emph{consolidates} prior work. The intuition is:
 
 \begin{itemize}
-    \item \textbf{Type A} (disruptive): cites $p$ but does not cite any paper in $R$
-    \item \textbf{Type B} (consolidating): cites both $p$ and at least one paper in $R$
+    \item A \textbf{disruptive} paper causes future researchers to cite it \emph{instead of} the papers it built on. (Future work treats it as the new starting point.)
+    \item A \textbf{consolidating} paper causes future researchers to cite it \emph{alongside} the papers it built on. (Future work treats it as one contribution among many in an established line of research.)
 \end{itemize}
 
-\noindent The A/B disruption index is then:
+Formally, for a focal paper $p$ that cites a set of references $R$, we look at every paper that cites $p$ within 10 years and classify each as:
+\begin{itemize}
+    \item \textbf{Type A} (disruptive signal): cites $p$ but does \emph{not} cite any paper in $R$
+    \item \textbf{Type B} (consolidating signal): cites both $p$ and at least one paper in $R$
+\end{itemize}
 
+The disruption score is:
 \begin{equation}
     D_{AB} = \frac{A - B}{A + B}
 \end{equation}
 
-\noindent where $A$ and $B$ are the counts of Type A and Type B citers, respectively. This two-component variant omits the Type C citers (papers citing references in $R$ but not $p$) used in the full CD index \citep{funk2017}, but has been shown to correlate strongly with the full index and is substantially more tractable for API-based computation \citep{wu2019}. We required a minimum of 5 forward citers for a valid disruption score.
+This ranges from $-1$ (purely consolidating: every citing paper also cites the references) to $+1$ (purely disruptive: no citing paper also cites the references). A score of 0 means an equal mix. We required at least 5 citing papers for a valid score.
 
-From the 109,527 works, we randomly sampled 5,000 papers with at least one reference for disruption computation, obtaining valid scores for 3,421 papers across 1,594 unique authors. The top 5\% of the disruption distribution (threshold: $D_{AB} \geq 0.60$) was used to define ``disruptive'' papers, yielding 191 disruptive papers.
+From the 109,527 works, we randomly selected 5,000 papers with at least one reference for disruption scoring, obtaining valid scores for 3,421 papers across 1,594 unique authors.
 
-\subsection{Author-Level Metrics}
+\subsection{Step 3: The Reference-Count Problem}
 
-For each author with at least one scored paper, we computed:
+\textbf{This is a critical methodological point.} A paper's disruption score is mechanically influenced by how many references it cites:
 
 \begin{itemize}
-    \item \textbf{max\_cd5}: Peak disruption score across all scored papers
-    \item \textbf{mean\_cd5}: Average disruption score
-    \item \textbf{n\_disruptive}: Count of papers in the top 5\% of the disruption distribution
-    \item \textbf{any\_top5}: Binary indicator for ever producing a top-5\% disruptive paper
-    \item \textbf{frac\_disruptive}: Fraction of scored papers that are top-5\% disruptive
+    \item A paper with \textbf{3 references}: it is easy for a citing paper to avoid all 3 references by chance, producing a Type~A (``disruptive'') classification even if the work is not truly paradigm-shifting.
+    \item A paper with \textbf{30 references}: it is much harder for a citing paper to avoid \emph{all} 30 references, so consolidating classifications are more likely.
 \end{itemize}
 
-\subsection{Concentration Measures}
+In our data, this bias is dramatic. Among papers with $\leq 5$ references, 29\% received the maximum disruption score of $D = +1.0$. Among papers with $\geq 20$ references, only 0.3\% did (Table~\ref{tab:refbias}). The average disruption score for low-reference papers ($+0.36$) is far higher than for well-referenced papers ($-0.50$).
 
-\paragraph{Gini coefficient.} We computed the Gini coefficient for the distribution of disruptive paper counts across authors, with 95\% confidence intervals obtained via 1,000 bootstrap resamples. As a benchmark, we computed the Gini coefficient for maximum citation counts across the same authors.
+\begin{table}[H]
+\centering
+\caption{Reference Count Bias in Disruption Scores}
+\label{tab:refbias}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Reference Count & $N$ Papers & Mean CD5 & \% at $D = +1$ & \% at $D = -1$ \\
+\midrule
+$\leq 5$   & 145   & $+0.36$  & 29.0\% & 2.1\% \\
+6--10      & 308   & $-0.11$  & 3.2\%  & 5.5\% \\
+11--20     & 813   & $-0.33$  & 1.0\%  & 7.1\% \\
+$> 20$     & 2,258 & $-0.50$  & 0.3\%  & 7.7\% \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\paragraph{Lorenz curve.} We plotted cumulative disruptive output against cumulative proportion of scientists, ranked from least to most productive.
+\textbf{Correction applied:} For our main analysis, we exclude papers with fewer than 10 references. This reduces the sample from 3,421 to 3,045 papers across 1,463 authors, but dramatically reduces the artificial inflation of disruption scores (papers at $D = +1$ drop from 2.1\% to 0.6\%).
 
-\paragraph{Concentration ratios.} We computed the share of top-5\% disruptive papers produced by the top 1\%, 5\%, and 10\% of authors (ranked by disruptive paper count).
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{fig3_ref_count_bias.png}
+\caption{\textit{Left:} Scatter plot showing that papers with fewer references tend to receive higher (more ``disruptive'') scores. \textit{Right:} The percentage of papers with positive disruption drops sharply as reference count increases. This demonstrates that low reference counts mechanically inflate disruption scores.}
+\label{fig:refbias}
+\end{figure}
 
-\paragraph{Power-law tail fit.} We fit a power-law distribution to the upper tail of the max disruption score distribution using the maximum likelihood estimator
-\begin{equation}
-    \hat{\alpha} = 1 + \frac{n}{\sum_{i=1}^{n} \ln(x_i / x_{\min})}
-\end{equation}
-\citep{clauset2009}, with $x_{\min}$ set at the 90th percentile, and assessed fit quality via the Kolmogorov--Smirnov statistic.
+\subsection{Step 4: Measuring Concentration}
 
-\subsection{Demographic Profiling}
+To measure how unequally disruption is distributed across scientists, we use two tools:
 
-We estimated two regression models:
+\paragraph{The Gini coefficient} is a number between 0 and 1 that measures inequality.
+\begin{itemize}
+    \item \textbf{Gini = 0} means perfect equality: every scientist has the same disruption score.
+    \item \textbf{Gini = 1} means perfect inequality: one scientist has everything, everyone else has nothing.
+    \item For context, U.S.\ household income has a Gini of about 0.49.
+\end{itemize}
 
-\paragraph{Extensive margin (logistic).}
-\begin{equation}
-    \Pr(\text{disruptor}_i = 1) = \Lambda\!\left(\beta_0 + \beta_1 \cdot \overline{\text{team}}_i + \beta_2 \cdot \text{ppy}_i + \beta_3 \cdot \text{career}_i + \beta_4 \cdot \ln(1 + h_i) + \gamma_f\right)
-\end{equation}
-where $\Lambda(\cdot)$ is the logistic function, $\overline{\text{team}}_i$ is mean team size, $\text{ppy}_i$ is papers per year, $\text{career}_i$ is career length in years, $h_i$ is the h-index, and $\gamma_f$ represents field fixed effects for the seven largest STEM subfields.
+\paragraph{The Lorenz curve} is a graph that visualizes inequality. Scientists are lined up from lowest to highest disruption score. The curve shows: ``if you include the bottom $X$\% of scientists, what fraction of total disruption do they account for?'' A 45-degree line means perfect equality; the further the curve bows below the line, the more unequal the distribution.
 
-\paragraph{Intensive margin (OLS).}
-\begin{equation}
-    \text{max\_cd5}_i = \beta_0 + \beta_1 \cdot \overline{\text{team}}_i + \beta_2 \cdot \text{ppy}_i + \beta_3 \cdot \text{career}_i + \beta_4 \cdot \ln(1 + h_i) + \gamma_f + \varepsilon_i
-\end{equation}
-with heteroskedasticity-consistent (HC3) standard errors.
+\paragraph{Concentration ratios} answer: ``What share of total disruption comes from the top 1\%, 5\%, 10\%, and 25\% of scientists?''
 
-\subsection{Population Benchmark}
+\subsection{Step 5: The Zero-Inflation Problem}
 
-We downloaded the \citet{park2023} replication dataset from Zenodo (Record 7258379), which contains 22.5 million paper-level CD5 disruption scores from Web of Science. Because this dataset lacks per-paper identifiers (DOIs or accession numbers), we used it as a population-level distributional benchmark rather than for paper-level matching. We compared the distributional properties (mean, median, percentiles, KS statistic) of our A/B disruption scores against the Zenodo CD5 distribution to assess external validity.
+\textbf{This is the second critical methodological point.} Our initial analysis computed the Gini coefficient on the \emph{count of top-5\% disruptive papers per author}. This variable is mostly zeros: 89.9\% of authors produced zero top-5\% papers.
+
+The problem: when you compute a Gini coefficient on data that is 90\% zeros, the result is mechanically $\approx 0.90$---regardless of any real concentration pattern. The Gini is simply reflecting the base rate of a rare event, not measuring meaningful inequality.
+
+\textbf{Analogy:} Suppose you ask ``how concentrated is Olympic gold medal winning among all recreational runners?'' If you compute a Gini coefficient on the number of gold medals per person (99.999\% of whom have zero), you would get a Gini $\approx 1.0$ and conclude ``extreme concentration!'' But this is trivially true and uninformative---of course most people don't win Olympic gold.
+
+\textbf{Correction applied:} Instead of the binary/count measure, we compute the Gini on each author's \emph{continuous peak disruption score} (their highest-scoring paper). This variable has no zeros (every author with a scored paper has some max score) and captures the full range of disruption rather than collapsing it into ``disruptive or not.''
+
+\subsection{Step 6: Demographic Comparison}
+
+We compare scientists who produced at least one top-5\% disruptive paper (``disruptors'') against those who did not (``non-disruptors'') on simple descriptive statistics: team size, career length, h-index, and citations per paper. No complex models are needed for the descriptive findings; the contrasts are straightforward.
+
+\subsection{Step 7: Consistency Checks}
+
+We check whether the results hold up across:
+\begin{itemize}
+    \item \textbf{Time periods}: six five-year windows from 1980--84 through 2005--09.
+    \item \textbf{Scientific fields}: 15 STEM subfields with $\geq 20$ authors each.
+\end{itemize}
+
+\subsection{Step 8: Validation}
+
+We compare our disruption score distribution against the \citet{park2023} Zenodo dataset of 22.5 million CD5 scores from Web of Science as a population-level benchmark. Because that dataset lacks per-paper identifiers, we compare distributional shapes rather than matching individual papers.
 
 % ── 3. Results ────────────────────────────────────────────────────────────────
 
 \section{Results}
 
-\subsection{Extreme Concentration of Disruptive Output}
+\subsection{What the Flawed Analysis Showed}
 
-The distribution of disruptive research output among scientists is characterized by extreme inequality. Of the 1,594 authors with valid disruption scores, 174 (10.9\%) produced at least one top-5\% disruptive paper. However, the disruptive output itself is concentrated far beyond what this base rate would suggest.
-
-The Gini coefficient for the distribution of disruptive paper counts is \textbf{0.900} (95\% CI: [0.884, 0.914]). By comparison, the Gini coefficient for maximum citation counts across the same authors is 0.658 (95\% CI: [0.618, 0.694]). Disruption is thus substantially more concentrated than citations---a striking finding given that citation distributions are themselves famously skewed \citep{price1965, seglen1992}.
+Before describing the corrected results, we report the initial (flawed) findings to illustrate the magnitude of the methodological distortion.
 
 \begin{table}[H]
 \centering
-\caption{Concentration Ratios for Disruptive Output}
+\caption{Comparison of Initial (Flawed) vs.\ Corrected Analysis}
+\label{tab:comparison}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Metric & Initial (Flawed) & Corrected \\
+\midrule
+Papers analyzed         & 3,421            & 3,045 \\
+Authors analyzed        & 1,594            & 1,463 \\
+Gini coefficient        & 0.900            & 0.363 \\
+Gini interpretation     & ``Extreme''      & ``Moderate'' \\
+Top 5\% share           & 50.3\%           & 12.3\% \\
+Top 10\% share          & 92.1\%           & 22.5\% \\
+vs.\ citation Gini     & Higher (0.66)    & Lower (0.57) \\
+Disruption measure      & Count of top-5\% papers & Continuous peak score \\
+Reference filter        & None             & $\geq 10$ references \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The initial analysis overstated concentration by a factor of roughly 2.5$\times$ (Gini) and 4$\times$ (top-5\% share). The direction of the comparison with citations \emph{reversed}: disruption went from appearing more concentrated than citations to less concentrated.
+
+\subsection{Corrected Score Distribution}
+
+After filtering to papers with $\geq 10$ references, the distribution of disruption scores shifts substantially. The fraction of papers at $D = +1.0$ drops from 2.1\% to 0.6\%, and the fraction with positive disruption drops from 18.4\% to 13.9\% (Figure~\ref{fig:scores}).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{fig1_score_distribution.png}
+\caption{Distribution of disruption scores before (\textit{left}) and after (\textit{right}) applying the reference-count filter ($\geq 10$ references). The filter removes most of the artificial spike at $D = +1.0$.}
+\label{fig:scores}
+\end{figure}
+
+Most papers receive negative disruption scores, meaning they consolidate rather than displace prior work. This is consistent with the broader metascience finding that most research is ``normal science'' in Kuhn's sense \citep{kuhn1962}.
+
+\subsection{Corrected Concentration of Disruption}
+
+Using continuous peak disruption scores, the Gini coefficient is \textbf{0.363} (95\% CI: [0.351, 0.375]). This indicates moderate inequality---some scientists achieve notably higher peak disruption than others, but the distribution is far from the ``extreme concentration'' suggested by the flawed analysis.
+
+For comparison, the Gini for mean citations per paper across the same authors is \textbf{0.565} (95\% CI: [0.523, 0.610]). Disruption is \emph{less} unequally distributed than citations.
+
+\begin{table}[H]
+\centering
+\caption{Concentration Ratios (Corrected, Continuous Scores)}
 \label{tab:concentration}
 \begin{tabular}{@{}lc@{}}
 \toprule
-Author Percentile & Share of Disruptive Papers \\
+Author Percentile & Share of Total Disruption Score Mass \\
 \midrule
-Top 1\%  & 16.8\% \\
-Top 5\%  & 50.3\% \\
-Top 10\% & 92.1\% \\
+Top 1\%  & 2.6\% \\
+Top 5\%  & 12.3\% \\
+Top 10\% & 22.5\% \\
+Top 25\% & 47.4\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The Lorenz curve (Figure~\ref{fig:lorenz}, left panel) shows the characteristic L-shape of extreme concentration: the bottom 80\% of scientists contribute essentially zero disruptive papers, and virtually all disruptive output is produced by a thin upper tail. The comparison panel (Figure~\ref{fig:lorenz}, right) shows that this concentration substantially exceeds the already-pronounced inequality of citation distributions.
-
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{lorenz_curves.png}
-\caption{Lorenz curves for disruptive research output. \textit{Left:} cumulative share of top-5\% disruptive papers versus cumulative share of scientists, ranked from least to most disruptive. \textit{Right:} comparison of disruption concentration (Gini = 0.900) versus citation concentration (Gini = 0.658).}
+\includegraphics[width=\textwidth]{fig2_author_distribution.png}
+\caption{\textit{Left:} Distribution of peak disruption scores across 1,463 authors. The median is $-0.33$, meaning the typical scientist's best paper is mildly consolidating. \textit{Right:} Lorenz curves for disruption (Gini = 0.36) and citations (Gini = 0.57). Disruption is more equally distributed than citations.}
 \label{fig:lorenz}
 \end{figure}
 
-To assess whether the upper tail follows a power law, we shifted the max disruption scores to the positive domain ($x' = x - x_{\min,\text{raw}} + 0.001$) and applied the Clauset--Shalizi--Newman MLE with $x_{\min}$ set at the 90th percentile of the shifted distribution. The fit yields $\hat{\alpha} = 8.86$ with $x_{\min} = 0.60$ in the original disruption-score scale and KS statistic $= 0.19$ ($n_{\text{tail}} = 174$). The steep exponent indicates a truncated rather than heavy-tailed distribution, consistent with the observation that even among disruptors, most produce only one or two disruptive papers (the modal count among disruptors is 1).
+In plain terms: the top 5\% of scientists account for about 12\% of total disruption---some concentration, but comparable to many real-world distributions and far from the ``winner-take-all'' pattern that a Gini of 0.90 would imply.
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{disruption_distribution.png}
-\caption{Distribution of disruption scores across authors. \textit{Left:} histogram of peak disruption score (max CD5) across 1,594 authors. \textit{Right:} histogram of the number of top-5\% disruptive papers per author (log scale).}
-\label{fig:distribution}
-\end{figure}
+\subsection{Disruptor Profile}
 
-\subsection{Demographic Profile of Disruptors}
-
-Table~\ref{tab:descriptive} presents descriptive comparisons between disruptors (scientists with at least one top-5\% disruptive paper) and non-disruptors.
+Comparing the 148 scientists who produced at least one top-5\% disruptive paper against the 1,315 who did not:
 
 \begin{table}[H]
 \centering
-\caption{Descriptive Comparison: Disruptors vs.\ Non-Disruptors}
-\label{tab:descriptive}
+\caption{Median Values: Disruptors vs.\ Non-Disruptors}
+\label{tab:profile}
 \begin{tabular}{@{}lcc@{}}
 \toprule
-Variable & Disruptors ($n = 174$) & Non-Disruptors ($n = 1{,}420$) \\
+Variable & Disruptors ($n = 148$) & Non-Disruptors ($n = 1{,}315$) \\
 \midrule
-Mean team size            & 5.69   & 6.58 \\
-Scored papers             & 3.06   & 2.03 \\
-Career length (years)     & 7.71   & 4.13 \\
-h-index                   & 24.5   & 21.3 \\
-Mean disruption (cd5)     & 0.394  & $-0.424$ \\
-Peak disruption (max cd5) & 0.824  & $-0.307$ \\
-Mean citations per paper  & 49.5   & 72.7 \\
+Team size (avg)          & 4.5   & 5.0 \\
+Scored papers            & 2     & 1 \\
+Career length (years)    & 19    & 13 \\
+h-index                  & 23    & 17 \\
+Citations per paper      & 35.7  & 41.0 \\
+References per paper     & 25.5  & 30.0 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Several patterns are notable. Disruptors work in slightly \emph{smaller} teams (5.7 vs.\ 6.6 coauthors per paper), have \emph{longer} measured careers (7.7 vs.\ 4.1 years), and have \emph{lower} mean citations per paper (49.5 vs.\ 72.7). The last finding is consistent with the observation that disruptive papers often receive fewer citations than consolidating papers in mature fields \citep{park2023}, as disruptive work may initially be controversial or difficult to integrate into existing research programs.
+The most notable difference is career length: disruptors have a median career span of 19 years versus 13 for non-disruptors. This likely reflects a simple statistical regularity---scientists who publish over more years have more chances to produce a high-scoring paper---rather than any deep insight about the nature of disruption. Disruptors also work in slightly smaller teams and, perhaps counterintuitively, receive somewhat \emph{fewer} citations per paper on average.
+
+\subsection{Consistency Across Fields}
+
+The moderate inequality pattern is remarkably consistent across STEM subfields (Table~\ref{tab:fields}). The continuous Gini ranges from 0.30 (Chemistry, Immunology) to 0.43 (Physics and Astronomy), a narrow band given the diversity of these fields.
 
 \begin{table}[H]
 \centering
-\caption{Logistic Regression: Probability of Being a Disruptor}
-\label{tab:logit}
-\begin{tabular}{@{}lccc@{}}
-\toprule
-Variable & Coefficient & Odds Ratio & $p$-value \\
-\midrule
-Mean team size     & $-0.019$ & 0.982 & 0.230 \\
-Papers per year    & 0.347    & 1.415 & 0.198 \\
-Career length      & 0.090    & 1.095 & $< 10^{-8}$ \\
-$\ln(1 + \text{h-index})$ & $-0.222$ & 0.801 & 0.104 \\
-Field: Engineering & 0.931    & 2.537 & $< 10^{-4}$ \\
-\bottomrule
-\multicolumn{4}{@{}l}{\footnotesize $N = 1{,}594$. Pseudo-$R^2 = 0.056$. Field fixed effects included for 7 largest}\\
-\multicolumn{4}{@{}l}{\footnotesize subfields (Medicine as reference). Only significant field effects shown.}\\
-\end{tabular}
-\end{table}
-
-Career length is the only robustly significant predictor of producing disruptive work (OR = 1.095 per additional year, $p < 10^{-8}$). The direction of the team size coefficient is negative (consistent with the small-team disruption hypothesis of \citealt{wu2019}) but not statistically significant. The h-index coefficient is also negative and marginally non-significant ($p = 0.10$), suggesting that conventional measures of academic prestige do not positively predict disruptive output and may weakly predict against it.
-
-Among field fixed effects, Engineering has a significantly elevated odds of disruption (OR = 2.54, $p < 10^{-4}$) relative to Medicine (the reference category), consistent with prior findings that applied fields may offer more opportunities for paradigm-shifting contributions.
-
-\begin{table}[H]
-\centering
-\caption{OLS Regression: Peak Disruption Score (max cd5)}
-\label{tab:ols}
-\begin{tabular}{@{}lcc@{}}
-\toprule
-Variable & Coefficient & $p$-value \\
-\midrule
-Mean team size     & 0.000    & 0.995 \\
-Papers per year    & 0.142    & 0.002 \\
-Career length      & 0.031    & $< 10^{-25}$ \\
-$\ln(1 + \text{h-index})$ & $-0.021$ & 0.326 \\
-Field: Engineering & 0.182    & $< 10^{-4}$ \\
-Field: Chemistry   & 0.148    & 0.007 \\
-\bottomrule
-\multicolumn{3}{@{}l}{\footnotesize $N = 1{,}594$. $R^2 = 0.102$. Adjusted $R^2 = 0.095$. HC3 standard errors.}\\
-\end{tabular}
-\end{table}
-
-The intensive margin results reinforce the logistic findings. Career length remains the dominant predictor ($p < 10^{-25}$), and papers per year reaches significance ($\beta = 0.14$, $p = 0.002$). The overall explanatory power is modest ($R^2 = 0.10$), indicating that observable demographic characteristics explain only a small fraction of the variance in peak disruption---consistent with the view that disruption is driven by intellectual characteristics (novelty, risk-taking, interdisciplinarity) not well captured by standard bibliometric variables.
-
-\subsection{Field-Level Heterogeneity}
-
-The concentration of disruptive research is pervasive across STEM subfields, though the degree varies.
-
-\begin{table}[H]
-\centering
-\caption{Gini Coefficients for Disruptive Output by STEM Subfield}
+\caption{Disruption Inequality by STEM Subfield (Continuous Gini)}
 \label{tab:fields}
 \begin{tabular}{@{}lccc@{}}
 \toprule
 Field & Gini & $N$ Authors & \% Disruptors \\
 \midrule
-Neuroscience                                & 0.952 & 42  & 4.8\% \\
-Medicine                                    & 0.926 & 408 & 7.8\% \\
-Environmental Science                       & 0.909 & 66  & 9.1\% \\
-Biochemistry, Genetics \& Mol.\ Biology     & 0.904 & 240 & 10.0\% \\
-Agricultural \& Biological Sciences         & 0.897 & 89  & 11.2\% \\
-Computer Science                            & 0.896 & 67  & 10.4\% \\
-Chemistry                                   & 0.892 & 74  & 10.8\% \\
-Materials Science                           & 0.872 & 78  & 12.8\% \\
-Physics \& Astronomy                        & 0.868 & 114 & 13.2\% \\
-Engineering                                 & 0.831 & 174 & 19.5\% \\
-Health Professions                          & 0.767 & 30  & 30.0\% \\
+Physics \& Astronomy        & 0.433 & 105 & 3.8\% \\
+Neuroscience                & 0.402 & 42  & 4.8\% \\
+Ag.\ \& Biological Sciences & 0.363 & 82  & 12.2\% \\
+Biochem., Genetics \& Mol.\ Bio. & 0.362 & 232 & 9.1\% \\
+Medicine                    & 0.360 & 391 & 10.7\% \\
+Computer Science            & 0.351 & 59  & 8.5\% \\
+Engineering                 & 0.351 & 142 & 14.1\% \\
+Materials Science           & 0.345 & 68  & 8.8\% \\
+Health Professions          & 0.341 & 25  & 28.0\% \\
+Environmental Science       & 0.322 & 61  & 9.8\% \\
+Chemistry                   & 0.302 & 66  & 15.2\% \\
 \bottomrule
+\multicolumn{4}{@{}l}{\footnotesize 11 fields with $\geq 20$ authors and $\geq 1$ disruptor shown (1,273 of 1,463 authors).}\\
+\multicolumn{4}{@{}l}{\footnotesize Remaining authors in smaller fields or fields with zero disruptors.}\\
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:fields} reports the 11 fields with at least one disruptor (1,382 authors). The remaining 212 authors are distributed across smaller fields (including Earth and Planetary Sciences and Immunology and Microbiology, which produced zero top-5\% disruptive papers) or could not be assigned a unique primary field. All fields with sufficient data show Gini coefficients above 0.76, confirming that extreme concentration is a \emph{universal} feature of STEM research rather than an artifact of any particular discipline. The highest concentration appears in Neuroscience (Gini = 0.95) and Medicine (Gini = 0.93), while Engineering (Gini = 0.83) and Health Professions (Gini = 0.77) show the lowest---but still very high---concentration levels.
-
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{field_gini_comparison.png}
-\caption{Gini coefficients for disruptive research output across STEM subfields. The dashed red line indicates the median Gini across fields.}
+\includegraphics[width=0.85\textwidth]{fig4_field_comparison.png}
+\caption{Gini coefficients for peak disruption across STEM subfields. All fall in a narrow range (0.30--0.43), with the overall average of 0.36 shown as a dashed line.}
 \label{fig:fields}
 \end{figure}
 
-The inverse relationship between Gini and the percentage of disruptors within each field is expected: fields where more scientists produce disruptive work will mechanically show lower concentration. Engineering's notably lower Gini and higher disruptor fraction (19.5\%) may reflect the applied character of the field, where innovations have more direct pathways to displacing prior practice.
+\subsection{Stability Over Time}
 
-\subsection{Temporal Stability}
-
-The concentration of disruptive research is remarkably stable over the three decades studied.
+The concentration of disruption is stable across three decades (Table~\ref{tab:temporal}). The continuous Gini fluctuates in a narrow band (0.38--0.41) with no discernible trend.
 
 \begin{table}[H]
 \centering
-\caption{Gini Coefficients for Disruptive Output by Five-Year Window}
+\caption{Disruption Inequality by Five-Year Window (Continuous Gini)}
 \label{tab:temporal}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
 Window & Gini & \% Disruptors & $N$ Authors & $N$ Papers \\
 \midrule
-1980--84 & 0.942 & 5.8\%  & 104 & 131 \\
-1985--89 & 0.946 & 5.5\%  & 165 & 226 \\
-1990--94 & 0.893 & 11.1\% & 207 & 300 \\
-1995--99 & 0.919 & 8.1\%  & 321 & 427 \\
-2000--04 & 0.934 & 7.0\%  & 530 & 727 \\
-2005--09 & 0.922 & 8.0\%  & 828 & 1{,}276 \\
+1980--84 & 0.413 & 6.7\%  & 90  & 111 \\
+1985--89 & 0.388 & 7.2\%  & 139 & 188 \\
+1990--94 & 0.404 & 7.3\%  & 178 & 251 \\
+1995--99 & 0.376 & 6.2\%  & 289 & 377 \\
+2000--04 & 0.380 & 6.5\%  & 478 & 650 \\
+2005--09 & 0.393 & 7.5\%  & 765 & 1{,}158 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The Gini coefficient fluctuates in a narrow band between 0.89 and 0.95 across all six complete five-year windows, with no discernible secular trend. The disruptor fraction similarly oscillates between 5.5\% and 11.1\% without a clear directional pattern. (We omit the incomplete 2010--2014 window, which contains only publications from 2010 due to the publication cutoff.) This temporal stability suggests that the concentration of disruptive output reflects a \emph{structural} feature of how scientific knowledge production is organized, rather than a historical contingency or cohort effect.
-
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{temporal_trends.png}
-\caption{Temporal trends in disruption concentration. \textit{Left:} Gini coefficient for disruptive paper counts within five-year windows. \textit{Right:} percentage of authors producing at least one top-5\% disruptive paper.}
+\includegraphics[width=\textwidth]{fig5_temporal.png}
+\caption{Temporal trends in disruption inequality. \textit{Left:} Gini coefficient (continuous) is stable around 0.39. \textit{Right:} The fraction of scientists producing top-5\% disruptive papers is stable at 6--7\%.}
 \label{fig:temporal}
 \end{figure}
-
-\subsection{Validation Against Population Benchmark}
-
-We compared the distributional properties of our A/B disruption scores against the \citet{park2023} Zenodo benchmark of 22.5 million CD5 scores from Web of Science.
-
-\begin{table}[H]
-\centering
-\caption{Distributional Comparison: Our Sample vs.\ Zenodo Benchmark}
-\label{tab:validation}
-\begin{tabular}{@{}lcc@{}}
-\toprule
-Statistic & Our Sample ($N = 3{,}421$) & Zenodo ($N = 22{,}479{,}429$) \\
-\midrule
-Mean                  & $-0.379$ & 0.040 \\
-Median                & $-0.500$ & $-0.001$ \\
-Standard deviation    & 0.479    & 0.221 \\
-\% positive disruption & 18.4\%  & 22.4\% \\
-KS statistic          & 0.735    & --- \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The KS statistic of 0.735 indicates significant distributional divergence, which is expected for three reasons. First, our A/B disruption index is a two-component approximation of the full five-year CD index used in the Zenodo data, and is known to produce more extreme values (both positive and negative) due to the omission of Type C citers. Second, our forward citation window is 10 years versus 5 years in the Zenodo data. Third, our sample is conditioned on authors with at least 5 publications and 10 citations, creating a composition difference from the population of all Web of Science papers.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{validation_benchmark.png}
-\caption{Validation against population benchmark. \textit{Left:} overlapping density histograms of disruption scores from our sample (blue) and the Zenodo benchmark (coral). \textit{Right:} Q--Q plot comparing quantiles of our sample against the Zenodo benchmark.}
-\label{fig:validation}
-\end{figure}
-
-Despite the absolute distributional differences, the qualitative properties are consistent: both distributions are centered near zero or slightly negative, both are right-skewed, and both show that a large majority of papers have non-positive disruption scores. The key finding---extreme concentration of disruption among a small fraction of authors---is robust to the specific disruption metric used, as it depends on the \emph{relative ranking} of papers within our sample rather than on absolute score calibration.
 
 % ── 4. Discussion ─────────────────────────────────────────────────────────────
 
 \section{Discussion}
 
-\subsection{Interpretation}
+\subsection{What We Found}
 
-Our findings establish three main results. First, the concentration of disruptive research is extreme: a Gini of 0.90 places it well above the already-skewed distribution of citations (Gini = 0.66) and comparable to the most unequal wealth distributions observed globally. The top 10\% of scientists account for over 92\% of all top-5\% disruptive papers. Second, this concentration is temporally stable and universal across STEM fields, suggesting a structural feature of scientific knowledge production. Third, the observable demographic predictors of disruption are weak ($R^2 \approx 0.10$), with career length being the only robust predictor---a finding more consistent with the interpretation that disruption requires sustained engagement and accumulated expertise than with the ``young genius'' narrative.
+Disruptive research is moderately unequally distributed among scientists, with a Gini of 0.36 on continuous peak disruption scores. This is \emph{less} unequal than citation counts (Gini = 0.57), stable across time, and consistent across STEM fields. About 10\% of scientists produce at least one top-5\% disruptive paper, and the top 5\% of scientists account for about 12\% of total disruption---meaningful but not extreme concentration.
+
+\subsection{What We Got Wrong Initially, and Why It Matters}
+
+Our initial analysis reported a Gini of 0.90 and claimed ``extreme concentration.'' This was wrong for two compounding reasons:
+
+\paragraph{Lesson 1: The Gini coefficient on zero-inflated counts is misleading.} When you define ``disruptive'' as the top 5\% and then compute a Gini on the count of disruptive papers per author, $\sim$90\% of authors have zero by construction. The Gini then mechanically equals $\sim$0.90 regardless of any real concentration pattern. This is a general hazard in bibliometrics: anytime a Gini is computed on a count variable where most observations are zero (e.g., number of papers in \textit{Nature}, number of patents, number of grants), the result primarily reflects the rarity of the event rather than inequality in the underlying ability.
+
+\paragraph{Lesson 2: Low-reference papers produce artifactually extreme disruption scores.} Papers citing fewer than 10 references are mechanically more likely to receive disruption scores near $+1.0$, because it is easy for citing papers to avoid all references by chance. This inflates the right tail of the disruption distribution and misclassifies many ordinary papers as ``disruptive.'' The same bias likely affects population-level analyses that do not control for reference count.
+
+Together, these two errors created a cascade: inflated disruption scores pushed more papers above the top-5\% threshold, which inflated the count of ``disruptive papers'' for some authors, which inflated the Gini on those counts. Each step amplified the distortion.
 
 \subsection{Relation to Prior Work}
 
-Our results complement \citet{park2023} by shifting the unit of analysis from papers to scientists. While Park et al.\ documented that disruption has declined \emph{on average} over time, we show that disruption is concentrated among a thin tail of scientists \emph{within any given period}, and that this concentration has not appreciably changed. Together, these findings suggest that the decline in average disruption documented by Park et al.\ may reflect changes in the \emph{composition} of the scientific workforce or the \emph{incentive environment} (e.g., the expansion of team science and specialization) rather than a uniform decline in individual scientific capacity.
-
-Our demographic findings align with \citet{wu2019}, who found that small teams disrupt while large teams develop, and with \citet{lin2023}, who characterized disruptors as less central, less prolific, and more likely to be early in their careers. The negative (though non-significant) coefficient on h-index in our models is consistent with the notion that academic stardom and paradigm-shifting work are at best orthogonal and potentially inversely related.
+Our corrected findings are consistent with \citet{park2023}'s observation that most papers are consolidating rather than disruptive. The moderate inequality we observe (Gini = 0.36) is lower than the inequality of citations (Gini = 0.57), suggesting that the capacity to produce \emph{some} disruptive work is more broadly distributed among scientists than the capacity to accumulate citations. This may reflect the fact that disruption and prestige are partially orthogonal: disruptive papers may be controversial, slow to accumulate citations, or published in unexpected venues \citep{wu2019}.
 
 \subsection{Limitations}
 
-Several limitations warrant discussion.
-
-\paragraph{Disruption metric.} Our A/B disruption index omits Type C citers and uses a 10-year forward window rather than the standard 5-year window of the CD5 index. While the two-component variant has been shown to correlate strongly with the full index \citep{wu2019}, the omission of Type C citers produces more extreme scores, as reflected in the distributional divergence from the Zenodo benchmark. Our concentration findings depend on \emph{within-sample rankings} rather than absolute scores, which mitigates this concern.
-
-\paragraph{Sample size and selection.} Our disruption scores cover 3,421 papers across 1,594 authors---substantially smaller than the population-level analyses of \citet{park2023}. The sample is conditioned on authors with at least 5 publications and 10 citations, which excludes inactive researchers and may understate the true concentration of disruption (since including inactive researchers would inflate the non-disruptor count). Conversely, the 5,000-paper subsample for disruption computation introduces sampling variability in the classification of individual papers as disruptive.
-
-\paragraph{STEM restriction.} Our analysis is limited to STEM fields and does not address whether similar concentration patterns obtain in the social sciences or humanities, where the dynamics of knowledge displacement may differ.
-
-\paragraph{Career length measurement.} Career length is computed from the author's earliest publication year recorded in OpenAlex's \texttt{counts\_by\_year} field through the latest scored publication. Where this field is unavailable, we fall back to the span of scored papers only, which may underestimate true career length for authors with few scored works.
-
-\paragraph{Observational design.} Our regression models are descriptive, not causal. The association between career length and disruption, for example, may reflect survivorship bias (scientists who produce disruptive work may be more likely to remain in academia) rather than a causal effect of time on disruptive capacity.
-
-\subsection{Implications}
-
-The extreme concentration of disruptive research has implications for science policy. If paradigm-shifting discoveries are produced by a thin tail of scientists whose observable characteristics do not strongly predict their disruptive capacity, then policies aimed at \emph{identifying} future disruptors ex ante (e.g., through track record or prestige metrics) may be inherently limited. Instead, policies that maintain a broad base of independent researchers with diverse approaches---supporting what \citet{kuhn1962} called ``essential tension'' between tradition and innovation---may be more effective at sustaining the flow of disruptive discoveries.
-
-The stability of disruption concentration over time also suggests that the widely discussed ``decline of disruption'' \citep{park2023} is not accompanied by a corresponding \emph{equalization} of disruptive capacity. Even in periods of relatively higher average disruption, the output remains concentrated among a small fraction of scientists. This argues against the interpretation that disruption has declined because it has become ``democratized'' or diffused---rather, the absolute level of disruptive output may have fallen while its distribution across scientists has remained unchanged.
+\begin{itemize}
+    \item \textbf{Sample size}: Our disruption scores cover 3,045 papers across 1,463 authors---far smaller than population-level studies. Results may not generalize to all of science.
+    \item \textbf{Disruption metric}: The A/B variant omits Type C citers and uses a 10-year window rather than the standard 5 years, producing more extreme scores than the standard CD5 index.
+    \item \textbf{Career length}: We measure career length using the author's earliest publication year recorded in OpenAlex, which may be incomplete for authors with sparse early records.
+    \item \textbf{STEM only}: We do not address the social sciences or humanities.
+    \item \textbf{Observational}: All comparisons are descriptive. The association between career length and disruption likely reflects survivorship bias rather than a causal effect.
+    \item \textbf{Publication window}: Works were fetched for 1980--2010 only. The 2010 cutoff was chosen to guarantee at least a 10-year forward citation window (through 2020+) for every paper. Extending to 2014 would add four years of data but reduce the forward window to 6 years for the newest papers; extending further would increasingly compromise the disruption computation. A future replication with a 2014 endpoint and 5-year forward window (matching the standard CD5 definition) would be a natural extension.
+\end{itemize}
 
 % ── 5. Conclusion ─────────────────────────────────────────────────────────────
 
 \section{Conclusion}
 
-Using disruption scores for 3,421 STEM papers by 1,594 authors, we find that disruptive research output is extremely concentrated: the Gini coefficient of 0.900 for disruptive paper counts exceeds the Gini of 0.658 for citations and is stable across six five-year windows spanning three decades (1980--2009) and eleven STEM subfields. The top 5\% of scientists produce half of all top-5\% disruptive papers. Observable demographic characteristics explain only 10\% of the variance in peak disruption, with career length as the dominant predictor. These findings establish the concentration of disruption as a robust structural feature of STEM research and suggest that the capacity for paradigm-shifting work is driven by factors poorly captured by standard bibliometric indicators.
+Disruptive research output is moderately unequally distributed among STEM scientists---less so than citations, stable over time, and consistent across fields. The initially reported ``extreme concentration'' (Gini = 0.90) was an artifact of two methodological choices: applying an inequality measure to a zero-inflated count variable, and failing to control for the mechanical relationship between reference counts and disruption scores. We present these corrections not as a criticism of the disruption index itself, but as a cautionary example of how standard bibliometric analysis steps can compound to produce misleading results. Researchers using the disruption index should (1) filter for minimum reference counts and (2) avoid computing Gini coefficients on thresholded count variables.
 
 % ── Data and Code Availability ────────────────────────────────────────────────
 
@@ -410,11 +397,6 @@ All analysis code and cached data are available at \url{https://github.com/banks
 
 \begin{thebibliography}{99}
 
-\bibitem[Clauset et~al.(2009)]{clauset2009}
-Clauset, A., Shalizi, C.~R., \& Newman, M.~E.~J. (2009).
-\newblock Power-law distributions in empirical data.
-\newblock \textit{SIAM Review}, 51(4), 661--703.
-
 \bibitem[Funk and Owen-Smith(2017)]{funk2017}
 Funk, R.~J., \& Owen-Smith, J. (2017).
 \newblock A dynamic network measure of technological change.
@@ -425,40 +407,15 @@ Kuhn, T.~S. (1962).
 \newblock \textit{The Structure of Scientific Revolutions}.
 \newblock University of Chicago Press.
 
-\bibitem[Lin et~al.(2023)]{lin2023}
-Lin, Z., Yin, Y., Liu, L., \& Wang, D. (2023).
-\newblock SciSciNet: A large-scale open data lake for the science of science research.
-\newblock \textit{Scientific Data}, 10, 315.
-
-\bibitem[Lotka(1926)]{lotka1926}
-Lotka, A.~J. (1926).
-\newblock The frequency distribution of scientific productivity.
-\newblock \textit{Journal of the Washington Academy of Sciences}, 16(12), 317--323.
-
 \bibitem[Park et~al.(2023)]{park2023}
 Park, M., Leahey, E., \& Funk, R.~J. (2023).
 \newblock Papers and patents are becoming less disruptive over time.
 \newblock \textit{Nature}, 613, 138--144.
 
-\bibitem[Price(1963)]{price1963}
-Price, D.~J. de~S. (1963).
-\newblock \textit{Little Science, Big Science}.
-\newblock Columbia University Press.
-
-\bibitem[Price(1965)]{price1965}
-Price, D.~J. de~S. (1965).
-\newblock Networks of scientific papers.
-\newblock \textit{Science}, 149(3683), 510--515.
-
 \bibitem[Priem et~al.(2022)]{priem2022}
 Priem, J., Piwowar, H., \& Orber, R. (2022).
 \newblock OpenAlex: A fully-open index of scholarly works, authors, venues, institutions, and concepts.
 \newblock \textit{arXiv preprint} arXiv:2205.01833.
-
-\bibitem[Seglen(1992)]{seglen1992}
-Seglen, P.~O. (1992).
-\newblock The skewness of science.
-\newblock \textit{Journal of the American Society for Information Science}, 43(9), 628--638.
 
 \bibitem[Wu et~al.(2019)]{wu2019}
 Wu, L., Wang, D., \& Evans, J.~A. (2019).

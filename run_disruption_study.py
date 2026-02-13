@@ -504,7 +504,9 @@ def compute_author_disruption_metrics(
     ).reset_index()
 
     agg["frac_disruptive"] = agg["n_disruptive_papers"] / agg["n_scored_papers"]
-    agg["career_length"] = agg["pub_year_max"] - agg["pub_year_min"] + 1
+    # career_length from scored papers only (will be replaced with full career
+    # span from OpenAlex demographics in run_demographic_analysis if available)
+    agg["career_length_scored"] = agg["pub_year_max"] - agg["pub_year_min"] + 1
 
     return agg
 
@@ -622,9 +624,14 @@ def run_distribution_analysis(
 
     # ── Power-law tail fit ──
     max_cd5_vals = author_metrics["max_cd5"].dropna().values
-    # Shift to positive for power-law fitting
-    shifted = max_cd5_vals - max_cd5_vals.min() + 0.001
+    # Shift to positive for power-law fitting (record shift for back-transform)
+    shift_offset = max_cd5_vals.min() - 0.001
+    shifted = max_cd5_vals - shift_offset
     pl_fit = fit_power_law_tail(shifted)
+    # Back-transform x_min to original disruption scale
+    if not np.isnan(pl_fit.get("xmin", np.nan)):
+        pl_fit["xmin_shifted"] = pl_fit["xmin"]
+        pl_fit["xmin"] = pl_fit["xmin_shifted"] + shift_offset
     results["power_law_fit"] = pl_fit
 
     # ── Lorenz curve plot ──
@@ -691,6 +698,19 @@ def run_demographic_analysis(
         return {"error": "No data after merge"}
 
     results = {}
+
+    # ── Compute career_length from full OpenAlex career span ──
+    # Use first_pub_year from OpenAlex counts_by_year (full career) rather than
+    # pub_year_min from scored papers only, to avoid bias from subsample coverage
+    if "first_pub_year" in df.columns:
+        df["career_length"] = df["pub_year_max"] - df["first_pub_year"].clip(upper=df["pub_year_max"]) + 1
+        df.loc[df["first_pub_year"].isna(), "career_length"] = df.loc[
+            df["first_pub_year"].isna(), "career_length_scored"
+        ]
+        print("  career_length: using full OpenAlex career span (first_pub_year → pub_year_max)", flush=True)
+    else:
+        df["career_length"] = df["career_length_scored"]
+        print("  career_length: falling back to scored-paper span only", flush=True)
 
     # ── Descriptive comparison ──
     df["is_disruptor"] = df["any_top5"].astype(int)
@@ -823,7 +843,8 @@ def temporal_trends(works_df: pd.DataFrame, output_dir: Path) -> Dict[str, Any]:
     cd5_threshold = scored["cd5"].quantile(1 - TOP_PERCENTILE)
 
     windows = []
-    for start in range(1980, 2011, 5):
+    # Only include complete 5-year windows within publication period
+    for start in range(1980, PUB_END_YEAR - 3, 5):
         end = start + 4
         window = scored[(scored["publication_year"] >= start) & (scored["publication_year"] <= end)]
         if len(window) < 50:
@@ -1068,9 +1089,12 @@ def write_report(
     if pl and not np.isnan(pl.get("alpha", np.nan)):
         lines.append("### Power-Law Tail Fit")
         lines.append(f"- Alpha: {pl['alpha']:.3f}")
-        lines.append(f"- x_min: {pl['xmin']:.4f}")
+        lines.append(f"- x_min (original scale): {pl['xmin']:.4f}")
+        if "xmin_shifted" in pl:
+            lines.append(f"- x_min (shifted scale): {pl['xmin_shifted']:.4f}")
         lines.append(f"- KS statistic: {pl['ks_stat']:.4f}")
         lines.append(f"- Tail observations: {pl['n_tail']}")
+        lines.append("- Note: Power-law fit applied to max_cd5 values shifted to positive domain; x_min reported in original disruption scale [-1, 1].")
         lines.append("")
 
     lines.append("### Figures")
@@ -1123,6 +1147,11 @@ def write_report(
         lines.append("|-------|------|-----------|-------------|")
         for fg in field_ginis[:15]:
             lines.append(f"| {fg['field']} | {fg['gini']:.4f} | {fg['n_authors']} | {100*fg['pct_disruptors']:.1f}% |")
+        lines.append("")
+        total_in_table = sum(fg["n_authors"] for fg in field_ginis)
+        lines.append(f"Note: Table shows {len(field_ginis)} fields covering {total_in_table} of {n_authors} authors. "
+                     "Remaining authors are in smaller fields not listed or could not be assigned a unique primary field. "
+                     "Fields with zero disruptors have undefined Gini (shown as nan).")
         lines.append("")
         lines.append("![Field Gini Comparison](field_gini_comparison.png)")
         lines.append("")
@@ -1186,6 +1215,9 @@ def write_report(
     lines.append("- Author demographics from OpenAlex API; STEM filtered client-side via top concepts.")
     lines.append("- STEM fields only (Physical Sciences, Life Sciences, Engineering, Mathematics, CS).")
     lines.append(f"- Publication window: {PUB_START_YEAR}–{PUB_END_YEAR} to ensure adequate forward citation window.")
+    lines.append("- Career length uses full OpenAlex career span (first_pub_year from counts_by_year) where available, "
+                 "falling back to scored-paper span otherwise.")
+    lines.append("- Temporal windows limited to complete 5-year bins within the publication period.")
 
     report_path = output_dir / "disruption_concentration_report.md"
     report_path.write_text("\n".join(lines))

@@ -382,6 +382,8 @@ Several limitations warrant discussion.
 
 \paragraph{STEM restriction.} Our analysis is limited to STEM fields and does not address whether similar concentration patterns obtain in the social sciences or humanities, where the dynamics of knowledge displacement may differ.
 
+\paragraph{Career length measurement.} Career length is computed from the author's earliest publication year recorded in OpenAlex's \texttt{counts\_by\_year} field through the latest scored publication. Where this field is unavailable, we fall back to the span of scored papers only, which may underestimate true career length for authors with few scored works.
+
 \paragraph{Observational design.} Our regression models are descriptive, not causal. The association between career length and disruption, for example, may reflect survivorship bias (scientists who produce disruptive work may be more likely to remain in academia) rather than a causal effect of time on disruptive capacity.
 
 \subsection{Implications}

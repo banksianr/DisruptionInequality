@@ -1,0 +1,412 @@
+{
+  "distribution": {
+    "gini_disruption": {
+      "point": 0.8998108088578242,
+      "ci_lo": 0.884321056446145,
+      "ci_hi": 0.9138115776423492
+    },
+    "concentration_disruption": {
+      "top1pct": 0.16753926701570682,
+      "top5pct": 0.5026178010471204,
+      "top10pct": 0.9214659685863874
+    },
+    "gini_citations": {
+      "point": 0.6579347702208426,
+      "ci_lo": 0.6183522453322368,
+      "ci_hi": 0.6935214879179977
+    },
+    "power_law_fit": {
+      "alpha": 8.857831982722322,
+      "xmin": 1.601,
+      "ks_stat": 0.19446613539518387,
+      "n_tail": 174
+    }
+  },
+  "demographics": {
+    "descriptive_table": {
+      "mean_team_size_mean": {
+        "0": 6.580415779734856,
+        "1": 5.694563657925727
+      },
+      "mean_team_size_median": {
+        "0": 5.0,
+        "1": 4.5
+      },
+      "mean_team_size_std": {
+        "0": 8.701465635687017,
+        "1": 7.084774914445406
+      },
+      "n_scored_papers_mean": {
+        "0": 2.034507042253521,
+        "1": 3.057471264367816
+      },
+      "n_scored_papers_median": {
+        "0": 1.0,
+        "1": 2.0
+      },
+      "n_scored_papers_std": {
+        "0": 2.412574113111162,
+        "1": 3.2233122010460393
+      },
+      "career_length_mean": {
+        "0": 4.126056338028169,
+        "1": 7.712643678160919
+      },
+      "career_length_median": {
+        "0": 1.0,
+        "1": 3.0
+      },
+      "career_length_std": {
+        "0": 6.00871084352144,
+        "1": 8.582019173025289
+      },
+      "h_index_mean": {
+        "0": 21.33239436619718,
+        "1": 24.517241379310345
+      },
+      "h_index_median": {
+        "0": 17.0,
+        "1": 18.5
+      },
+      "h_index_std": {
+        "0": 17.32825947298346,
+        "1": 19.41417280341404
+      },
+      "mean_cd5_mean": {
+        "0": -0.4239804644840135,
+        "1": 0.39414977373507165
+      },
+      "mean_cd5_median": {
+        "0": -0.4697691197691198,
+        "1": 0.4715578539107951
+      },
+      "mean_cd5_std": {
+        "0": 0.3627716032779809,
+        "1": 0.4848092578750295
+      },
+      "max_cd5_mean": {
+        "0": -0.3070238903149187,
+        "1": 0.8239699546061402
+      },
+      "max_cd5_median": {
+        "0": -0.3333333333333333,
+        "1": 0.8333333333333334
+      },
+      "max_cd5_std": {
+        "0": 0.41588628806287964,
+        "1": 0.1561512670619314
+      },
+      "mean_cited_by_mean": {
+        "0": 72.69942152808298,
+        "1": 49.5423228591332
+      },
+      "mean_cited_by_median": {
+        "0": 38.666666666666664,
+        "1": 27.875
+      },
+      "mean_cited_by_std": {
+        "0": 180.83600416186326,
+        "1": 64.43702448797973
+      }
+    },
+    "logistic_model": {
+      "n": 1594,
+      "pseudo_r2": 0.05639185503033717,
+      "coefficients": {
+        "const": {
+          "coef": -2.3778657631375655,
+          "p": 1.7279288983404147e-07,
+          "odds_ratio": 0.0927483132969512
+        },
+        "mean_team_size": {
+          "coef": -0.01852193906799426,
+          "p": 0.22977709513241273,
+          "odds_ratio": 0.9816485379015254
+        },
+        "papers_per_year": {
+          "coef": 0.34732036291539725,
+          "p": 0.19820081525946043,
+          "odds_ratio": 1.4152700527920912
+        },
+        "career_length": {
+          "coef": 0.09044247920480285,
+          "p": 2.1828307096048385e-08,
+          "odds_ratio": 1.0946585402009936
+        },
+        "log_h_index": {
+          "coef": -0.221937147199437,
+          "p": 0.10377691209182387,
+          "odds_ratio": 0.8009657056903525
+        },
+        "field_Biochemistry, Genetics and Molecular Biology": {
+          "coef": 0.08975512567317144,
+          "p": 0.7269844864391246,
+          "odds_ratio": 1.0939063813166021
+        },
+        "field_Engineering": {
+          "coef": 0.9308726290224452,
+          "p": 8.3419273241256e-05,
+          "odds_ratio": 2.536721829155464
+        },
+        "field_Physics and Astronomy": {
+          "coef": 0.40852871244163197,
+          "p": 0.21745597148042028,
+          "odds_ratio": 1.5046024529478403
+        },
+        "field_Agricultural and Biological Sciences": {
+          "coef": 0.31910109370060286,
+          "p": 0.3815091300417476,
+          "odds_ratio": 1.3758904117288657
+        },
+        "field_Materials Science": {
+          "coef": 0.43978959074157997,
+          "p": 0.2367480039869061,
+          "odds_ratio": 1.5523805489053055
+        },
+        "field_Chemistry": {
+          "coef": 0.24932829634125062,
+          "p": 0.533849143915437,
+          "odds_ratio": 1.2831632217196
+        },
+        "field_Computer Science": {
+          "coef": 0.20017619360125694,
+          "p": 0.6411383751065198,
+          "odds_ratio": 1.2216179804705554
+        }
+      }
+    },
+    "ols_model": {
+      "n": 1594,
+      "r2": 0.10164473049404399,
+      "adj_r2": 0.09539826528256135,
+      "coefficients": {
+        "const": {
+          "coef": -0.4179042550955798,
+          "p": 1.8534409210088692e-08
+        },
+        "mean_team_size": {
+          "coef": 1.0571339236312236e-05,
+          "p": 0.9945537634704467
+        },
+        "papers_per_year": {
+          "coef": 0.14225734435872525,
+          "p": 0.001502157190891615
+        },
+        "career_length": {
+          "coef": 0.030651209405267575,
+          "p": 6.065260291813532e-26
+        },
+        "log_h_index": {
+          "coef": -0.020679007728532456,
+          "p": 0.32623719952486807
+        },
+        "field_Biochemistry, Genetics and Molecular Biology": {
+          "coef": -0.017676429679510705,
+          "p": 0.6312441893084446
+        },
+        "field_Engineering": {
+          "coef": 0.18220552204098572,
+          "p": 5.6114650132953906e-05
+        },
+        "field_Physics and Astronomy": {
+          "coef": -0.027820685373554685,
+          "p": 0.64928170302463
+        },
+        "field_Agricultural and Biological Sciences": {
+          "coef": 0.09160204734315681,
+          "p": 0.10539406595035714
+        },
+        "field_Materials Science": {
+          "coef": 0.09614027551678409,
+          "p": 0.13899828290010394
+        },
+        "field_Chemistry": {
+          "coef": 0.1476369026694607,
+          "p": 0.006861414933941818
+        },
+        "field_Computer Science": {
+          "coef": 0.07079359457645515,
+          "p": 0.28714669174766405
+        }
+      }
+    }
+  },
+  "field_heterogeneity": {
+    "field_ginis": [
+      {
+        "field": "Neuroscience",
+        "gini": 0.9523809523809523,
+        "n_authors": 42,
+        "mean_max_cd5": -0.45065841357327796,
+        "pct_disruptors": 0.047619047619047616
+      },
+      {
+        "field": "Medicine",
+        "gini": 0.9258938869665513,
+        "n_authors": 408,
+        "mean_max_cd5": -0.2253007245402344,
+        "pct_disruptors": 0.0784313725490196
+      },
+      {
+        "field": "Environmental Science",
+        "gini": 0.9090909090909091,
+        "n_authors": 66,
+        "mean_max_cd5": -0.11540649269883983,
+        "pct_disruptors": 0.09090909090909091
+      },
+      {
+        "field": "Biochemistry, Genetics and Molecular Biology",
+        "gini": 0.9038333333333334,
+        "n_authors": 240,
+        "mean_max_cd5": -0.2210127921494018,
+        "pct_disruptors": 0.1
+      },
+      {
+        "field": "Agricultural and Biological Sciences",
+        "gini": 0.8968335035750766,
+        "n_authors": 89,
+        "mean_max_cd5": -0.1398255581213647,
+        "pct_disruptors": 0.11235955056179775
+      },
+      {
+        "field": "Computer Science",
+        "gini": 0.8955223880597015,
+        "n_authors": 67,
+        "mean_max_cd5": -0.1759416791619064,
+        "pct_disruptors": 0.1044776119402985
+      },
+      {
+        "field": "Chemistry",
+        "gini": 0.8918918918918919,
+        "n_authors": 74,
+        "mean_max_cd5": -0.08346015186278562,
+        "pct_disruptors": 0.10810810810810811
+      },
+      {
+        "field": "Materials Science",
+        "gini": 0.8717948717948718,
+        "n_authors": 78,
+        "mean_max_cd5": -0.13015363696696045,
+        "pct_disruptors": 0.1282051282051282
+      },
+      {
+        "field": "Physics and Astronomy",
+        "gini": 0.868421052631579,
+        "n_authors": 114,
+        "mean_max_cd5": -0.19581198128182106,
+        "pct_disruptors": 0.13157894736842105
+      },
+      {
+        "field": "Engineering",
+        "gini": 0.8310905522848332,
+        "n_authors": 174,
+        "mean_max_cd5": -0.042352337265426546,
+        "pct_disruptors": 0.19540229885057472
+      },
+      {
+        "field": "Health Professions",
+        "gini": 0.7666666666666667,
+        "n_authors": 30,
+        "mean_max_cd5": 0.22177693788748606,
+        "pct_disruptors": 0.3
+      },
+      {
+        "field": "Earth and Planetary Sciences",
+        "gini": NaN,
+        "n_authors": 36,
+        "mean_max_cd5": -0.5156319688273024,
+        "pct_disruptors": 0.0
+      },
+      {
+        "field": "Immunology and Microbiology",
+        "gini": NaN,
+        "n_authors": 34,
+        "mean_max_cd5": -0.3730103860065654,
+        "pct_disruptors": 0.0
+      }
+    ]
+  },
+  "temporal": {
+    "windows": [
+      {
+        "window": "1980-1984",
+        "start_year": 1980,
+        "n_papers": 131,
+        "n_authors": 104,
+        "gini": 0.9423076923076923,
+        "frac_disruptors": 0.057692307692307696,
+        "mean_cd5": -0.4110115809659426
+      },
+      {
+        "window": "1985-1989",
+        "start_year": 1985,
+        "n_papers": 226,
+        "n_authors": 165,
+        "gini": 0.9454545454545454,
+        "frac_disruptors": 0.05454545454545454,
+        "mean_cd5": -0.45182215114847835
+      },
+      {
+        "window": "1990-1994",
+        "start_year": 1990,
+        "n_papers": 300,
+        "n_authors": 207,
+        "gini": 0.893317230273752,
+        "frac_disruptors": 0.1111111111111111,
+        "mean_cd5": -0.37584124927431073
+      },
+      {
+        "window": "1995-1999",
+        "start_year": 1995,
+        "n_papers": 427,
+        "n_authors": 321,
+        "gini": 0.9190031152647975,
+        "frac_disruptors": 0.08099688473520249,
+        "mean_cd5": -0.34297350843681196
+      },
+      {
+        "window": "2000-2004",
+        "start_year": 2000,
+        "n_papers": 727,
+        "n_authors": 530,
+        "gini": 0.9336719883889695,
+        "frac_disruptors": 0.06981132075471698,
+        "mean_cd5": -0.3591403963998586
+      },
+      {
+        "window": "2005-2009",
+        "start_year": 2005,
+        "n_papers": 1276,
+        "n_authors": 828,
+        "gini": 0.9214615329151344,
+        "frac_disruptors": 0.07971014492753623,
+        "mean_cd5": -0.3889171343970043
+      },
+      {
+        "window": "2010-2014",
+        "start_year": 2010,
+        "n_papers": 334,
+        "n_authors": 285,
+        "gini": 0.9364912280701755,
+        "frac_disruptors": 0.06666666666666667,
+        "mean_cd5": -0.3737990507832712
+      }
+    ]
+  },
+  "validation": {
+    "n_our_papers": 3421,
+    "our_mean": -0.379233733056356,
+    "our_median": -0.5,
+    "our_std": 0.4791635558210628,
+    "our_skew": 0.9679932654251769,
+    "our_pct_positive": 0.18386436714410992,
+    "our_pct_strongly_disruptive": 0.06577024261911722,
+    "zenodo_n": 22479429,
+    "zenodo_mean": 0.039623520611674616,
+    "zenodo_median": -0.0013976240391334,
+    "zenodo_std": 0.2209630860013122,
+    "zenodo_pct_positive": 0.2237680948212697,
+    "ks_stat": 0.7348917509500146,
+    "ks_p": 0.0
+  }
+}

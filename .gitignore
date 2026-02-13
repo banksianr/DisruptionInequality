@@ -1,0 +1,11 @@
+data/
+cache/
+__pycache__/
+*.pyc
+
+# Large intermediate CSVs (reproducible from pipeline)
+output/all_works.csv
+output/works_with_cd5.csv
+output/sampled_authors.csv
+output/author_disruption_metrics.csv
+output/zenodo_cd5_benchmark_sample.csv
